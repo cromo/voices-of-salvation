@@ -1,7 +1,8 @@
 param(
   $AwbDirectory = "C:\Program Files (x86)\Steam\steamapps\common\Tales of Symphonia\P12E\Data\TOS_Server\Rawdata\WIN",
+  $OutputDirectory = ".\data\audio",
   $AwbUnpacker = ".\vendor\awb-tools\AWB_unpacker.exe",
-  $OutputDirectory = ".\data\audio"
+  $adx2wav = ".\vendor\awb-tools\ADX2WAV.EXE"
 )
 Write-Host $AwbDirectory
 New-Item $OutputDirectory -ItemType Directory -Force
@@ -30,11 +31,20 @@ function Test-IsAdxFile([string]$Path) {
 Get-ChildItem $OutputDirectory -Recurse -Filter *.bin | Where-Object {
   Test-IsAdxFile $_
 } | ForEach-Object {
-  Write-Host $_
-  Move-Item $_ -Destination "$([System.Io.Path]::GetDirectoryName($_))\$([System.Io.Path]::GetFileNameWithoutExtension($_)).adx"
+  $adxFileName = "$([System.Io.Path]::GetDirectoryName($_))\$([System.Io.Path]::GetFileNameWithoutExtension($_)).adx"
+  Write-Host "$_ -> $adxFileName"
+  Move-Item $_ -Destination $adxFileName
 }
 
 # Remove any remaining bin files since they aren't audio
 Get-ChildItem $OutputDirectory -Recurse -Filter *.bin | ForEach-Object {
+  Remove-Item $_
+}
+
+# Convert the ADX files to WAV and delete the ADX file
+Get-ChildItem $OutputDirectory -Recurse -Filter *.adx | ForEach-Object {
+  $wavFileName = "$([System.Io.Path]::GetDirectoryName($_))\$([System.Io.Path]::GetFileNameWithoutExtension($_)).wav"
+  Write-Host "$_ -> $wavFileName"
+  & $adx2wav $_ $wavFileName
   Remove-Item $_
 }
