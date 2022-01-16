@@ -33,3 +33,8 @@ Get-ChildItem $OutputDirectory -Recurse -Filter *.bin | Where-Object {
   Write-Host $_
   Move-Item $_ -Destination "$([System.Io.Path]::GetDirectoryName($_))\$([System.Io.Path]::GetFileNameWithoutExtension($_)).adx"
 }
+
+# Remove any remaining bin files since they aren't audio
+Get-ChildItem $OutputDirectory -Recurse -Filter *.bin | ForEach-Object {
+  Remove-Item $_
+}
