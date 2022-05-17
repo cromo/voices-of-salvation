@@ -1,9 +1,12 @@
+#Requires -Version 6.0
 param(
   $AwbDirectory = "C:\Program Files (x86)\Steam\steamapps\common\Tales of Symphonia\P12E\Data\TOS_Server\Rawdata\WIN",
   $OutputDirectory = ".\data\audio",
   $AwbUnpacker = ".\vendor\awb-tools\AWB_unpacker.exe",
   $adx2wav = ".\vendor\awb-tools\ADX2WAV.EXE"
 )
+# This script requires features (`Get-Content`s `-AsByteStream`) that was added
+# in PowerShell 6. This script was developed against PowerShell 7.
 Write-Host $AwbDirectory
 New-Item $OutputDirectory -ItemType Directory -Force
 
