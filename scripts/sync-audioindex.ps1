@@ -1,6 +1,4 @@
-param ($OutputFile = ".\data\audio\index.txt")
+param ($OutputFile = ".\data\audio\index.json")
 
 $projectRoot = Get-Location
-Get-ChildItem .\data\audio -Recurse -Filter *.wav | ForEach-Object {
-  Add-Content $OutputFile $_.ToString().Substring("$projectRoot\data".Length).Replace("\", "/")
-}
+.\scripts\get-audioindex.ps1 | Out-File -FilePath $OutputFile
