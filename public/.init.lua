@@ -1,10 +1,12 @@
-local json = require "dkjson"
+package.path = package.path .. ";public/.lua/?.lua"
 require "fun"()
+local sqlite3 = require "lsqlite3"
+print("sqlite version: " .. sqlite3.version())
 
 print("Hey there, this is lua")
 
 local audioIndexFile = io.open(".\\data\\audio\\index.json")
-local audioFiles = json.decode(audioIndexFile:read("*a"))
+local audioFiles = DecodeJson(audioIndexFile:read("*a"))
 audioIndexFile:close()
 
 function posixPathFromWindowsPath(path)
