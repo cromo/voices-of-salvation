@@ -3,6 +3,7 @@ package.path = package.path .. ";public/.lua/?.lua"
 require "fun"()
 local sqlite3 = require "lsqlite3"
 local unix = require "unix"
+local fm = require "fullmoon"
 print("sqlite version: " .. sqlite3.version())
 
 function listFilesRecursive(startDir, listing)
@@ -28,3 +29,10 @@ end
 
 audioFiles = totable(map(removePrefix("data"), listFilesRecursive("data/audio")))
 each(print, take(4, audioFiles))
+
+fm.setTemplate("hello", "Hello, {%& name %}")
+fm.setRoute("/hello/:name", function(r)
+  return fm.serveContent("hello", {name = r.params.name})
+end)
+fm.setRoute("/", "/index.html")
+fm.run()
