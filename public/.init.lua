@@ -6,33 +6,64 @@ local unix = require "unix"
 local fm = require "fullmoon"
 print("sqlite version: " .. sqlite3.version())
 
-function listFilesRecursive(startDir, listing)
-  listing = listing or {}
-  for name, kind in assert(unix.opendir(startDir)) do
-    if kind == unix.DT_DIR then
-      if not (name == "." or name == "..") then
-        listFilesRecursive(startDir .. "/" .. name, listing)
+local databaseFile = "voices-of-salvation.db"
+
+function setupDb()
+  function listFilesRecursive(startDir, listing)
+    listing = listing or {}
+    for name, kind in assert(unix.opendir(startDir)) do
+      if kind == unix.DT_DIR then
+        if not (name == "." or name == "..") then
+          listFilesRecursive(startDir .. "/" .. name, listing)
+        end
+      else
+        listing[#listing + 1] = startDir .. "/" .. name
       end
-    else
-      listing[#listing + 1] = startDir .. "/" .. name
+    end
+    return listing
+  end
+  
+  function removePrefix(prefixPattern)
+    return function(str)
+      str = str:gsub("^" .. prefixPattern, "")
+      return str
     end
   end
-  return listing
-end
-
-function removePrefix(prefixPattern)
-  return function(str)
-    str = str:gsub("^" .. prefixPattern, "")
-    return str
+  
+  audioFiles = totable(map(removePrefix("data"), listFilesRecursive("data/audio")))
+  
+  local db = sqlite3.open(databaseFile)
+  db:exec[[
+    CREATE TABLE IF NOT EXISTS transcriptions (
+      filename TEXT PRIMARY KEY CHECK (typeof(filename) = 'text'),
+      character TEXT CHECK (typeof(character) = 'text' OR character IS NULL),
+      transcription TEXT CHECK (typeof(transcription) = "text" OR transcription IS NULL),
+      isDistorted INTEGER CHECK (typeof(isDistorted) = "integer" or isDistorted IS NULL)
+    );
+  ]]
+  local insert = db:prepare("INSERT OR IGNORE INTO transcriptions (filename) VALUES (?);")
+  for i, filename in ipairs(audioFiles) do
+    insert:bind_values(filename)
+    local result = insert:step()
+    if i % 100 == 0 or i == #audioFiles or result ~= sqlite3.DONE then
+      print("%d/%d %d %s" % {i, #audioFiles, result, filename})
+    end
+    insert:reset()
   end
+  db:close()
+end
+-- setupDb()
+
+function openDb()
+  return sqlite3.open(databaseFile)
 end
 
-audioFiles = totable(map(removePrefix("data"), listFilesRecursive("data/audio")))
-each(print, take(4, audioFiles))
-
-fm.setTemplate("hello", "Hello, {%& name %}")
-fm.setRoute("/hello/:name", function(r)
-  return fm.serveContent("hello", {name = r.params.name})
+fm.setRoute("/api/audio", function(r)
+  local db = openDb()
+  rows = {}
+  for row in db:nrows("SELECT filename, character, transcription, isDistorted FROM transcriptions") do
+    rows[#rows + 1] = row
+  end
+  return fm.serveResponse(200, {ContentType = "application/json"}, EncodeJson(rows))
 end)
-fm.setRoute("/", "/index.html")
 fm.run()
