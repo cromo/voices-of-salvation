@@ -66,4 +66,22 @@ fm.setRoute("/api/audio", function(r)
   end
   return fm.serveResponse(200, {ContentType = "application/json"}, EncodeJson(rows))
 end)
+
+fm.setRoute(fm.GET "/api/audio/*", function(r)
+  local path = "/audio/" .. r.params.splat
+  local db = openDb()
+  local select = db:prepare([[
+    SELECT filename, character, transcription, isDistorted
+    FROM transcriptions
+    WHERE filename = ?
+  ]])
+  select:bind_values(path)
+  rows = {}
+  for row in select:nrows() do
+    rows[#rows + 1] = row
+  end
+  select:finalize()
+  return fm.serveResponse(200, {ContentType = "application/json"}, EncodeJson(rows[1]))
+end)
+
 fm.run()
