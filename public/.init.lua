@@ -84,4 +84,30 @@ fm.setRoute(fm.GET "/api/audio/*", function(r)
   return fm.serveResponse(200, {ContentType = "application/json"}, EncodeJson(rows[1]))
 end)
 
+fm.setRoute(fm.POST "/api/audio/*", function(r)
+  local path = "/audio/" .. r.params.splat
+  local body = DecodeJson(r.body)
+  local db = openDb()
+  local update = db:prepare([[
+    UPDATE transcriptions
+    SET
+      character = ?,
+      transcription = ?,
+      isDistorted = ?
+    WHERE filename = ?
+  ]])
+  update:bind_values(body.character, body.transcription, body.isDistorted, path)
+  local result = update:step()
+  if result ~= sqlite3.DONE then
+    print("Update returned", result)
+    return fm.serveResponse(500, {ContentType = "application/json"}, EncodeJson({error = "Update failed"}))
+  end
+  return fm.serveResponse(200, {ContentType = "application/json"}, EncodeJson({
+    filename = path,
+    character = body.character,
+    transcription = body.transcription,
+    isDistorted = body.isDistorted,
+  }))
+end)
+
 fm.run()
