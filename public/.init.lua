@@ -52,7 +52,9 @@ function setupDb()
   end
   db:close()
 end
--- setupDb()
+if not unix.stat(databaseFile) then
+  setupDb()
+end
 
 function openDb()
   return sqlite3.open(databaseFile)
