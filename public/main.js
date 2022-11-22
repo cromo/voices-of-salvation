@@ -142,9 +142,12 @@ appRoot.textContent = state.overallStatus;
 const rawAudioMetadata = await fetchAllAudioMetadata();
 state.overallStatus = "loaded";
 appRoot.textContent = state.overallStatus;
-state.labeledAudioPartitioner = new RunSequence((a, b) => isUnprocessed(a) === isUnprocessed(b), rawAudioMetadata)
+state.labeledAudioPartitioner = new RunSequence((a, b) => isUnlabeled(a) === isUnlabeled(b), rawAudioMetadata)
+const unlabeled = state.labeledAudioPartitioner.getRangesMatching({}).reduce((total, [start, end]) => total + end - start, 0);
+console.log(`${rawAudioMetadata.length - unlabeled}/${rawAudioMetadata.length} labeled`);
+console.log(state.labeledAudioPartitioner.getRuns());
 state.currentFileIndex = selectRandomUnlabeledFileIndex(state.labeledAudioPartitioner);
-renderLabeler(appRoot, state);
+renderLabeler(appRoot, { ...state, onSubmit: onLabel });
 
 /**
  * @function
@@ -155,11 +158,52 @@ async function fetchAllAudioMetadata() {
   return await response.json();
 }
 
+async function getAudioMetadata(filename) {
+  const response = await fetch(`/api${filename}`);
+  return await response.json();
+}
+
+/**
+ * 
+ * @param {AudioMetadata} metadata The metadata to update
+ * @returns {Promise<AudioMetadata>}
+ */
+async function saveAudioMetadata(metadata) {
+  const response = await fetch(`/api${metadata.filename}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(metadata),
+  });
+  return await response.json();
+}
+
+async function onLabel(character, transcription, isDistorted) {
+  const savedMetadata = await saveAudioMetadata({
+    ...state.labeledAudioPartitioner.get(state.currentFileIndex),
+    character,
+    transcription,
+    isDistorted: isDistorted ? 1 : 0,
+  });
+  state.labeledAudioPartitioner.set(state.currentFileIndex, savedMetadata);
+  const nextIndex = nextUnlabeledFileIndex(state.labeledAudioPartitioner, state.currentFileIndex);
+  if (nextIndex === undefined) {
+    appRoot.textContent = "You finished everything! Wahoo!";
+    return;
+  }
+  state.currentFileIndex = nextIndex;
+  const nextMetadata = await getAudioMetadata(state.labeledAudioPartitioner.get(nextIndex).filename);
+  if (isUnlabeled(nextMetadata)) {
+    renderLabeler(appRoot, { ...state, onSubmit: onLabel });
+  } else {
+    appRoot.textContent = "Labelling collision detected, refresh to start from a new file";
+  }
+}
+
 /**
  * 
  * @param {AudioMetadata} audio 
  */
-function isUnprocessed({ character, transcription, isDistorted }) {
+function isUnlabeled({ character, transcription, isDistorted }) {
   return character === undefined &&
     transcription === undefined &&
     isDistorted === undefined;
@@ -185,13 +229,43 @@ function selectRandomUnlabeledFileIndex(runSequence) {
 }
 
 /**
+ * @param {RunSequence<AudioMetadata>} runSequence 
+ * @param {number} index The index to start searching from.
+ * @returns {number | undefined} The provided index if its unlabeled, the next
+ * unlabeled index if it is labeled, accounting for wrapping past the end.
+ * undefined if there is no unlabeled data.
+ */
+function nextUnlabeledFileIndex(runSequence, index) {
+  const unlabeledRuns = runSequence.getRangesMatching({ filename: "" });
+  if (unlabeledRuns.length === 0) {
+    // Everything is labeled, wahoo!
+    return;
+  }
+  const indexIsUnlabeled = unlabeledRuns.findIndex(([start, end]) => start <= index && index < end) !== -1;
+  if (indexIsUnlabeled) {
+    return index;
+  }
+  const nextUnlabeledRun = unlabeledRuns.find(([start,]) => index < start);
+  if (nextUnlabeledRun !== undefined) {
+    return nextUnlabeledRun[0];
+  }
+  // Wrap around to the beginning if we went past the end.
+  return unlabeledRuns[0][0];
+}
+
+/**
  * 
  * @param {HTMLElement} containingElement The element to render into.
  * @param {object} props The required parameters to render.
  * @param {number} props.currentFileIndex
  * @param {RunSequence<AudioMetadata>} props.labeledAudioPartitioner
+ * @param {function(string, string, boolean): Promise<void>} props.onSubmit
  */
-function renderLabeler(containingElement, { currentFileIndex, labeledAudioPartitioner }) {
+function renderLabeler(containingElement, {
+  currentFileIndex,
+  labeledAudioPartitioner,
+  onSubmit,
+}) {
   const currentFile = labeledAudioPartitioner.get(currentFileIndex);
 
   const player = document.createElement("audio");
@@ -229,9 +303,14 @@ function renderLabeler(containingElement, { currentFileIndex, labeledAudioPartit
 
   const form = document.createElement("form");
   form.id = "add-transcription";
-  form.addEventListener("submit", (e) => {
+  form.addEventListener("submit", async (e) => {
     e.preventDefault();
-    console.log("submitting", e);
+
+    await onSubmit(
+      characterInput.value,
+      transcriptionInput.value,
+      isDistortedCheckbox.checked
+    );
   });
   form.appendChild(characterInput);
   form.appendChild(transcriptionInput);
