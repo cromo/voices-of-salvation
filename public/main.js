@@ -123,26 +123,27 @@ class RunSequence {
   }
 }
 
-/** @type {AppStatus} */
-let appStatus = "loading";
+/**
+ * @typedef {object} AppState
+ * @property {AppStatus} overallStatus
+ * @property {number} currentFileIndex
+ * @property {RunSequence<AudioMetadata>} labeledAudioPartitioner
+ */
+/** @type {AppState} */
+const state = {
+  overallStatus: "loading",
+  currentFileIndex: 0,
+  labeledAudioPartitioner,
+};
 
-console.log("Heyo");
 const appRoot = document.getElementById("root");
-appRoot.textContent = appStatus;
-const audio = await fetchAllAudioMetadata();
-appStatus = "loaded";
-appRoot.textContent = appStatus;
-// audio[1000].character = "Paul";
-// audio[1001].transcription = "Ah, yes. I remember.";
-// audio[1002].isDistorted = 1;
-/** @type {RunSequence<AudioMetadata>} */
-const runs = new RunSequence((a, b) => isUnprocessed(a) === isUnprocessed(b), audio)
-console.log(runs.getRuns());
-console.log(runs.getRangesMatching({ filename: "/audio/BTLSTR.AWB/blah", character: "hey" }))
-console.log(runs.get(1000))
-const index = 13953;
-runs.set(index, { ...runs.get(index), character: "Steve" });
-console.log(runs.getRuns());
+appRoot.textContent = state.overallStatus;
+
+const rawAudioMetadata = await fetchAllAudioMetadata();
+state.overallStatus = "loaded";
+appRoot.textContent = state.overallStatus;
+state.labeledAudioPartitioner = new RunSequence((a, b) => isUnprocessed(a) === isUnprocessed(b), rawAudioMetadata)
+state.currentFileIndex = selectRandomUnlabeledFileIndex(state.labeledAudioPartitioner);
 
 /**
  * @function
@@ -161,4 +162,23 @@ function isUnprocessed({ character, transcription, isDistorted }) {
   return character === undefined &&
     transcription === undefined &&
     isDistorted === undefined;
+}
+
+/**
+ * @param {RunSequence<AudioMetadata>} runSequence The metadata to search through.
+ * @returns {number} The index of a random unlabeled file.
+ */
+function selectRandomUnlabeledFileIndex(runSequence) {
+  const unlabeledRuns = runSequence.getRangesMatching({ filename: "" });
+  const counts = unlabeledRuns.map(([start, end]) => end - start);
+  const total = counts.reduce((a, b) => a + b, 0);
+  let randomIndex = Math.floor(total * Math.random());
+  console.debug({ unlabeledRuns, total, randomIndex });
+  let run = 0;
+  for (run = 0; run < unlabeledRuns.length; ++run) {
+    if (randomIndex < counts[run]) {
+      return unlabeledRuns[run][0] + randomIndex;
+    }
+    randomIndex -= counts[run];
+  }
 }
