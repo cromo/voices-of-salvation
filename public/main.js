@@ -218,6 +218,15 @@ function renderLabeler(containingElement, { currentFileIndex, labeledAudioPartit
   submitButton.type = "submit";
   submitButton.value = "Submit";
 
+  const flexSpacer = document.createElement("div");
+  flexSpacer.className = "flex-spacer";
+  const bottomRow = document.createElement("div");
+  bottomRow.classList = "bottom-row";
+  bottomRow.appendChild(isDistortedCheckbox);
+  bottomRow.appendChild(isDistortedLabel);
+  bottomRow.appendChild(flexSpacer);
+  bottomRow.appendChild(submitButton);
+
   const form = document.createElement("form");
   form.id = "add-transcription";
   form.addEventListener("submit", (e) => {
@@ -226,13 +235,15 @@ function renderLabeler(containingElement, { currentFileIndex, labeledAudioPartit
   });
   form.appendChild(characterInput);
   form.appendChild(transcriptionInput);
-  form.appendChild(isDistortedCheckbox);
-  form.appendChild(isDistortedLabel);
-  form.appendChild(submitButton);
+  form.appendChild(bottomRow);
+
+  const labeler = document.createElement("div");
+  labeler.className = "labeler";
+  labeler.appendChild(player);
+  labeler.appendChild(form);
 
   while (containingElement.hasChildNodes()) {
     containingElement.removeChild(containingElement.firstChild);
   }
-  containingElement.appendChild(player);
-  containingElement.appendChild(form);
+  containingElement.appendChild(labeler);
 }
