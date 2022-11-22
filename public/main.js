@@ -83,6 +83,26 @@ class RunSequence {
   }
 
   /**
+   * @param {number} index The index of the element to replace.
+   * @param {T} value The value to place at that index.
+   */
+  set(index, value) {
+    if (this.sequence.length === 0) {
+      // No space to set data.
+      return;
+    }
+    this.sequence[index] = value;
+    if (this.sequence.length === 1) {
+      // There's only one run possible and it already exists.
+      return;
+    }
+    this.runs = this.sequence.reduce((runs, v, i) =>
+      this.comparator(this.sequence[runs[runs.length - 1]], v) ?
+        runs :
+        [...runs, i], [0]);
+  }
+
+  /**
    * @param {number} index The index to get the containing range of indexes for.
    * @returns {[number, number]} The [start, end) range containing the index.
    */
@@ -112,14 +132,17 @@ appRoot.textContent = appStatus;
 const audio = await fetchAllAudioMetadata();
 appStatus = "loaded";
 appRoot.textContent = appStatus;
-audio[1000].character = "Paul";
-audio[1001].transcription = "Ah, yes. I remember.";
-audio[1002].isDistorted = 1;
+// audio[1000].character = "Paul";
+// audio[1001].transcription = "Ah, yes. I remember.";
+// audio[1002].isDistorted = 1;
 /** @type {RunSequence<AudioMetadata>} */
 const runs = new RunSequence((a, b) => isUnprocessed(a) === isUnprocessed(b), audio)
 console.log(runs.getRuns());
 console.log(runs.getRangesMatching({ filename: "/audio/BTLSTR.AWB/blah", character: "hey" }))
 console.log(runs.get(1000))
+const index = 13953;
+runs.set(index, { ...runs.get(index), character: "Steve" });
+console.log(runs.getRuns());
 
 /**
  * @function
