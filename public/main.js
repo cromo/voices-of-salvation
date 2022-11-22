@@ -133,7 +133,7 @@ class RunSequence {
 const state = {
   overallStatus: "loading",
   currentFileIndex: 0,
-  labeledAudioPartitioner,
+  labeledAudioPartitioner: new RunSequence(() => true),
 };
 
 const appRoot = document.getElementById("root");
@@ -144,6 +144,7 @@ state.overallStatus = "loaded";
 appRoot.textContent = state.overallStatus;
 state.labeledAudioPartitioner = new RunSequence((a, b) => isUnprocessed(a) === isUnprocessed(b), rawAudioMetadata)
 state.currentFileIndex = selectRandomUnlabeledFileIndex(state.labeledAudioPartitioner);
+renderLabeler(appRoot, state);
 
 /**
  * @function
@@ -181,4 +182,57 @@ function selectRandomUnlabeledFileIndex(runSequence) {
     }
     randomIndex -= counts[run];
   }
+}
+
+/**
+ * 
+ * @param {HTMLElement} containingElement The element to render into.
+ * @param {object} props The required parameters to render.
+ * @param {number} props.currentFileIndex
+ * @param {RunSequence<AudioMetadata>} props.labeledAudioPartitioner
+ */
+function renderLabeler(containingElement, { currentFileIndex, labeledAudioPartitioner }) {
+  const currentFile = labeledAudioPartitioner.get(currentFileIndex);
+
+  const player = document.createElement("audio");
+  player.src = currentFile.filename;
+  player.controls = true;
+
+  const characterInput = document.createElement("input");
+  characterInput.type = "text";
+  characterInput.id = "character";
+  characterInput.placeholder = "Speaker";
+
+  const isDistortedCheckbox = document.createElement("input");
+  isDistortedCheckbox.type = "checkbox";
+  isDistortedCheckbox.id = "is-distorted";
+  const isDistortedLabel = document.createElement("label");
+  isDistortedLabel.htmlFor = isDistortedCheckbox.id;
+  isDistortedLabel.textContent = "Is distorted";
+
+  const transcriptionInput = document.createElement("textarea");
+  transcriptionInput.id = "transcription";
+  transcriptionInput.placeholder = "Transcribe the audio";
+
+  const submitButton = document.createElement("input");
+  submitButton.type = "submit";
+  submitButton.value = "Submit";
+
+  const form = document.createElement("form");
+  form.id = "add-transcription";
+  form.addEventListener("submit", (e) => {
+    e.preventDefault();
+    console.log("submitting", e);
+  });
+  form.appendChild(characterInput);
+  form.appendChild(transcriptionInput);
+  form.appendChild(isDistortedCheckbox);
+  form.appendChild(isDistortedLabel);
+  form.appendChild(submitButton);
+
+  while (containingElement.hasChildNodes()) {
+    containingElement.removeChild(containingElement.firstChild);
+  }
+  containingElement.appendChild(player);
+  containingElement.appendChild(form);
 }
