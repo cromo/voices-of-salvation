@@ -115,7 +115,7 @@ end)
 fm.setRoute("/", function(r)
   return fm.serveAsset("index.html")
 end)
-
+fm.setRoute("/main.js", fm.serveAsset)
 fm.setRoute("/audio/*", fm.serveAsset)
 
 fm.run()
